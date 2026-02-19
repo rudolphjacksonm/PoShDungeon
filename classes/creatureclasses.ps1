@@ -18,8 +18,12 @@ class Creature {
 
     # Properties
     [int]$Health
+    [int]$MaxHealth
     [string]$Name
     [State]$Status
+    [double]$DamageModifier = 1.0
+    [double]$HealModifier = 1.0
+    [bool]$IsBoss = $false
     
     # Hidden Properties
     hidden [string] $Weakness
@@ -33,6 +37,7 @@ class Creature {
         $this.health -= $health
 
         if ($this.Health -le 0){
+            $this.Health = 0
             $this.SetStatus('Dead')
         }
 
@@ -41,6 +46,9 @@ class Creature {
     # Heal creature method
     [void] Heal ([int]$Heal) {
         $this.health += $Heal
+        if (($this.MaxHealth -gt 0) -and ($this.Health -gt $this.MaxHealth)) {
+            $this.Health = $this.MaxHealth
+        }
 
     }
 
@@ -55,6 +63,7 @@ class Orc : Creature {
 
     # Properties for Orc class
     [int]$Health = 100
+    [int]$MaxHealth = 100
     [State]$Status = 'Alive'
 
     # Hidden properties
@@ -73,6 +82,7 @@ class Orc : Creature {
     Orc ([string]$name,$health) {
         $this.Name = $Name
         $this.Health = $Health
+        $this.MaxHealth = $Health
 
     }
 }
@@ -81,6 +91,7 @@ class Human : Creature {
     
     # Properties for Human class
     [int]$Health = 80
+    [int]$MaxHealth = 80
     [State]$Status = 'Alive'
 
     # Hidden properties for Human class
@@ -96,6 +107,7 @@ class Human : Creature {
     Human ([string]$Name, $Health) {
         $this.Name = $Name
         $this.Health = $Health
+        $this.MaxHealth = $Health
 
     }
 }
@@ -106,6 +118,14 @@ class Hero : Human {
     [String]$Armor
     [String]$Weapon
     [string]$Ring
+    [int]$Gold = 0
+    [int]$Potions = 0
+    [int]$Level = 1
+    [int]$Experience = 0
+    [int]$CritChance = 5
+    [int]$DodgeChance = 0
+    [double]$HealPowerModifier = 1.0
+    [int]$BonusDamage = 0
     
     # Hidden properties
     hidden [hashtable]$WeaponStats
@@ -133,6 +153,7 @@ class Skeleton : Creature {
 
     # Properties
     [int]$Health = 20
+    [int]$MaxHealth = 20
     [state]$Status = 'Undead'
 
     Skeleton(){}
@@ -142,8 +163,10 @@ class Skeleton : Creature {
 
     }
 
-    Skeleton ([string] $Name, [string] $Health) {
+    Skeleton ([string] $Name, [int] $Health) {
+        $this.Name = $Name
         $this.Health = $Health
+        $this.MaxHealth = $Health
     
     }
 }

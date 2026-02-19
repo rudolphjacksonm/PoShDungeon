@@ -1,15 +1,16 @@
 # Import classes
-. .\classes.ps1
-
-# Set background color
-$HOST.UI.RawUI.BackgroundColor = "Black"
-cmd /c cls
+. "$PSScriptRoot/classes.ps1"
 
 # Import helper functions
-. .\helpers\battlefunctions.ps1
-. .\helpers\inventoryfunctions.ps1
+. "$PSScriptRoot/helpers/uihelpers.ps1"
+. "$PSScriptRoot/helpers/battlefunctions.ps1"
+. "$PSScriptRoot/helpers/inventoryfunctions.ps1"
+. "$PSScriptRoot/helpers/gameplayfunctions.ps1"
 
-# Begin Game
+# Set background color and clear screen
+$HOST.UI.RawUI.BackgroundColor = 'Black'
+Clear-GameScreen
+
 Write-Host @"
 
 :::::::::   ::::::::   ::::::::  :::    :::  :::::::::  :::    ::: ::::    :::  ::::::::  :::::::::: ::::::::  ::::    :::
@@ -22,31 +23,78 @@ Write-Host @"
 
 "@ -ForegroundColor Red -BackgroundColor Black
 
-$name = Read-Host "What is your name?"
+$name = Read-Host 'What is your name?'
 $global:Hero = [Hero]::new($name)
+$global:Hero.Armor = 'Cloth_Sack'
+$global:Hero.Potions = 1
+$starterWeapon = Get-Weapon -WeaponName 'Broken_Shortsword'
+Equip-Weapon -Hero $global:Hero -Weapon $starterWeapon
 
-Write-Host "You're on the first floor of the dungeon."
-$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyUp")
-Write-Host "You see a wooden staircase in the distance. Shafts of sunlight coming through the ceiling are mottled with dust."
-$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyUp")
-Write-Host "The staircase spirals down at a sickening angle. You can't quite make out what is at the bottom."
-$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyUp")
-Write-Host "As you make your descent, you hear footsteps below you. You aren't sure how far away they are."
-$x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyUp")
+Write-Host "Welcome, $name. You descend into the dungeon with a $($global:Hero.Weapon)."
+Pause-ForContinue
 
-Write-Host "A skeleton leaps out of the shadows!"
+$floor = 1
+$continueGame = $true
 
-$skeleton = [skeleton]::new('Skeleton', 10)
+while ($continueGame -and $global:Hero.Status -ne [State]::Dead) {
+    Clear-GameScreen
+    $xpToNext = Get-ExperienceForNextLevel -Level $global:Hero.Level
 
-Battle -Attacker $Skeleton -Defender $Hero
+    Write-Host '==================== DUNGEON ====================' -ForegroundColor DarkGray
+    Write-Host "Floor $floor" -ForegroundColor Gray
+    Write-Host "HP: $($global:Hero.Health)/$($global:Hero.MaxHealth)  Lvl: $($global:Hero.Level)  XP: $($global:Hero.Experience)/$xpToNext" -ForegroundColor Cyan
+    Write-Host "Crit: $($global:Hero.CritChance)%  Dodge: $($global:Hero.DodgeChance)%  Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)" -ForegroundColor Gray
+    Write-Host '=================================================' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '[D] Descend deeper   [S] Search floor   [I] Inventory   [Q] Quit' -ForegroundColor White
 
-if ($Hero.Status -match 'Dead') {
-    Write-Host "GAME OVER" -ForegroundColor Red
-    Start-Sleep -10 seconds
-    Exit
+    $command = Read-SingleKeyChoice -ValidChoices @('D', 'S', 'I', 'Q') -Prompt 'Choose action key:'
+
+    switch ($command) {
+        'I' {
+            Get-InventoryWindow -Hero $global:Hero
+        }
+
+        'S' {
+            Search-Floor -Hero $global:Hero -Floor $floor
+            Pause-ForContinue
+        }
+
+        'D' {
+            $floor += 1
+            Clear-GameScreen
+            Write-Host "You descend to floor $floor." -ForegroundColor Gray
+
+            $enemy = New-Enemy -Floor $floor
+            if ($enemy.IsBoss) {
+                Write-Host "BOSS ENCOUNTER! $($enemy.Name) emerges with overwhelming force." -ForegroundColor Magenta
+            }
+            else {
+                Write-Host "$($enemy.Name) appears from the dark." -ForegroundColor DarkYellow
+            }
+            Pause-ForContinue
+
+            Battle -Attacker $global:Hero -Defender $enemy
+
+            if ($global:Hero.Status -eq [State]::Dead) {
+                Write-Host 'GAME OVER' -ForegroundColor Red
+                $continueGame = $false
+                continue
+            }
+
+            if ($enemy.Status -eq [State]::Dead) {
+                Grant-VictoryRewards -Hero $global:Hero -Floor $floor -Enemy $enemy
+                Pause-ForContinue
+            }
+        }
+
+        'Q' {
+            Write-Host 'You retreat from the dungeon... for now.' -ForegroundColor Gray
+            $continueGame = $false
+        }
+    }
 }
 
-Write-Host "You're on the second floor of the dungeon."
-Write-Host "What do you want to do next?"
-# Bring up prompt here with options: [I] for inventory, [M] for map, [Q] for quit, [L] for look
-
+if ($global:Hero.Status -ne [State]::Dead) {
+    Write-Host "Run complete. Floors reached: $floor | Gold: $($global:Hero.Gold)"
+}

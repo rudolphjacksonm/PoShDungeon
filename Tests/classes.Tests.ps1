@@ -1,49 +1,49 @@
-﻿# Tweaked pathfinding so Invoke-Pester looks in the proper directory; removed $sut variable
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+BeforeAll {
+    $repoRoot = (Resolve-Path "$PSScriptRoot/..").Path
+    . "$repoRoot/classes.ps1"
+}
 
-Describe "Creature Classes" {
-    Context "Instantiate Creatures" {
-
-        It "Creates (Base Class) Creature" {
-            $creature = [creature]::new() | Should Not BeNullOrEmpty
-
+Describe 'Creature Classes' {
+    Context 'Instantiation' {
+        It 'Creates base Creature' {
+            $creature = [Creature]::new()
+            $creature | Should -Not -BeNullOrEmpty
         }
 
-        It "Creates Orcs" {
-            $orc = [Orc]::new() | Should not BeNullOrEmpty
-
+        It 'Creates Orc' {
+            $orc = [Orc]::new()
+            $orc | Should -Not -BeNullOrEmpty
         }
 
-        It "Creates Humans" {
-            $human = [Human]::new() | Should not BeNullOrEmpty
-
+        It 'Creates Human' {
+            $human = [Human]::new()
+            $human | Should -Not -BeNullOrEmpty
         }
 
-        It "Creates Skeletons" {
-            $orc = [Skeleton]::new() | Should not BeNullOrEmpty
-
-        }
-
-    }
-
-    Context "Kill Creatures" {
-
-        It "Can kill a creature" {
-            $creature = [creature]::new()
-            $creature.hit(100)
-            $creature.Status | Should Be 'Dead'
-
+        It 'Creates Skeleton' {
+            $skeleton = [Skeleton]::new()
+            $skeleton | Should -Not -BeNullOrEmpty
         }
     }
 
-    Context "Heal Creatures" {
+    Context 'State changes' {
+        It 'Sets creature state to Dead when health falls to 0 or less' {
+            $creature = [Creature]::new()
+            $creature.Health = 10
 
-        It "Can heal a creature" {
-            $creature = [creature]::new()
+            $creature.Hit(12)
+
+            $creature.Status | Should -Be 'Dead'
+            $creature.Health | Should -Be 0
+        }
+
+        It 'Heals creature by expected amount' {
+            $creature = [Creature]::new()
             $creature.Health = 100
-            $creature.heal(10)
-            $creature.Health | Should Be 110
 
+            $creature.Heal(10)
+
+            $creature.Health | Should -Be 110
         }
     }
 }
