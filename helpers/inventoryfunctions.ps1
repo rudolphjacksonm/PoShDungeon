@@ -9,21 +9,24 @@ function Get-InventoryWindow {
     }
 
     $response = ''
+    $inventoryNotice = "Equipped: $($Hero.Weapon)"
     :mainLoop while ($response -ne 'Q') {
-        Clear-GameScreen
-        Write-Host '=================== INVENTORY ===================' -ForegroundColor DarkGray
-        Write-Host "Hero: $($Hero.Name)" -ForegroundColor Cyan
-        Write-Host "Armor: $($Hero.Armor)" -ForegroundColor Gray
-        Write-Host "Weapon: $($Hero.Weapon)  Damage: $($Hero.WeaponStats.MinDamage)-$($Hero.WeaponStats.MaxDamage)" -ForegroundColor Gray
-        Write-Host "Level: $($Hero.Level)  XP: $($Hero.Experience)/$(Get-ExperienceForNextLevel -Level $Hero.Level)" -ForegroundColor Gray
-        Write-Host "Crit: $($Hero.CritChance)%  Dodge: $($Hero.DodgeChance)%  Heal: x$($Hero.HealPowerModifier)" -ForegroundColor Gray
-        Write-Host "Gold: $($Hero.Gold)  Potions: $($Hero.Potions)" -ForegroundColor Gray
-        Write-Host '=================================================' -ForegroundColor DarkGray
-        Write-Host ''
-        Write-Host '[1] Swap Weapon   [2] Use Potion   [3] Inspect Weapon   [Q] Exit' -ForegroundColor White
+        $renderInventoryFrame = {
+            $statusLines = @(
+                "Hero: $($Hero.Name)  Armor: $($Hero.Armor)",
+                "Weapon: $($Hero.Weapon)  Damage: $($Hero.WeaponStats.MinDamage)-$($Hero.WeaponStats.MaxDamage)",
+                "Level: $($Hero.Level)  XP: $($Hero.Experience)/$(Get-ExperienceForNextLevel -Level $Hero.Level)",
+                "Crit: $($Hero.CritChance)%  Dodge: $($Hero.DodgeChance)%  Heal: x$($Hero.HealPowerModifier)",
+                "Gold: $($Hero.Gold)  Potions: $($Hero.Potions)"
+            )
+            $infoLines = @($inventoryNotice)
+            Show-HudWindow -ModeTitle 'INVENTORY' -StatusLines $statusLines -InfoLines $infoLines -InfoHeight 8
+        }
+
+        & $renderInventoryFrame
 
         if (Get-Command Read-SingleKeyChoice -ErrorAction SilentlyContinue) {
-            $response = Read-SingleKeyChoice -ValidChoices @('1', '2', '3', 'Q') -Prompt 'Choose inventory action key:'
+            $response = Read-SingleKeyChoice -ValidChoices @('1', '2', '3', 'Q') -Prompt 'Inventory action' -OptionLabels @('Swap weapon', 'Use potion', 'Inspect weapon', 'Exit inventory') -RenderFrame $renderInventoryFrame
         }
         else {
             $response = (Read-Host 'Enter a choice').ToUpperInvariant()
@@ -31,22 +34,27 @@ function Get-InventoryWindow {
 
         switch ($response) {
             '1' {
-                Set-HeroWeapon -Hero $Hero
-                Pause-ForContinue
+                $equipMessage = Set-HeroWeapon -Hero $Hero
+                if (-not [string]::IsNullOrWhiteSpace($equipMessage)) {
+                    $inventoryNotice = $equipMessage
+                }
+                else {
+                    $inventoryNotice = "Equipped: $($Hero.Weapon)"
+                }
             }
 
             '2' {
                 if ($Hero.Potions -gt 0) {
                     $healPoints = Get-Heal -Character $Hero
-                    $healPoints = [Math]::Max(1, [Math]::Floor($healPoints * $Hero.HealPowerModifier))
+                    $scaledHeal = [Math]::Round(($healPoints * [double]$Hero.HealPowerModifier), 0, [System.MidpointRounding]::AwayFromZero)
+                    $healPoints = [int][Math]::Max(1, $scaledHeal)
                     $Hero.Heal($healPoints)
                     $Hero.Potions -= 1
-                    Write-Host "$($Hero.Name) restored $healPoints health." -ForegroundColor Green
+                    $inventoryNotice = "$($Hero.Name) restored $healPoints health."
                 }
                 else {
-                    Write-Host 'No potions left.' -ForegroundColor DarkYellow
+                    $inventoryNotice = 'No potions left.'
                 }
-                Pause-ForContinue
             }
 
             '3' {
@@ -54,6 +62,18 @@ function Get-InventoryWindow {
             }
         }
     }
+}
+
+function Get-HeroWeaponOptions {
+    Param(
+        [Hero]$Hero
+    )
+
+    if ($null -eq $Hero.UnlockedWeapons -or $Hero.UnlockedWeapons.Count -eq 0) {
+        $Hero.UnlockedWeapons = @('Broken_Shortsword')
+    }
+
+    $Hero.UnlockedWeapons
 }
 
 function Show-WeaponDetails {
@@ -73,42 +93,136 @@ $($Hero.WeaponStats.Image)
     Pause-ForContinue -Message 'Press any key to return to inventory...'
 }
 
+function Format-WeaponLabel {
+    Param(
+        [string]$WeaponName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($WeaponName)) {
+        return ''
+    }
+
+    $WeaponName -replace '_', ' '
+}
+
+function Show-WeaponSelectScreen {
+    Param(
+        [string[]]$WeaponOptions,
+        [int]$SelectedIndex
+    )
+
+    $selectedWeapon = Get-Weapon -WeaponName $WeaponOptions[$SelectedIndex]
+    $displayName = Format-WeaponLabel -WeaponName $selectedWeapon.Name
+
+    Clear-GameScreen
+    Write-Host '=================== WEAPON SELECT ===================' -ForegroundColor DarkGray
+    Write-Host 'Use Arrow Keys to move, Enter to equip, Q to cancel.' -ForegroundColor DarkGray
+    Write-Host ''
+
+    for ($i = 0; $i -lt $WeaponOptions.Count; $i++) {
+        $cursor = if ($i -eq $SelectedIndex) { '>' } else { ' ' }
+        $weaponData = Get-Weapon -WeaponName $WeaponOptions[$i]
+        $weaponName = Format-WeaponLabel -WeaponName $weaponData.Name
+        Write-Host ("{0} {1}. {2} ({3}-{4})" -f $cursor, ($i + 1), $weaponName, $weaponData.MinDamage, $weaponData.MaxDamage) -ForegroundColor White
+    }
+
+    Write-Host ''
+    Write-Host ("Selected: {0} ({1}-{2})" -f $displayName, $selectedWeapon.MinDamage, $selectedWeapon.MaxDamage) -ForegroundColor Cyan
+    if ($selectedWeapon.Image) {
+        Write-Host $selectedWeapon.Image -ForegroundColor Gray
+    }
+    Write-Host $selectedWeapon.Description -ForegroundColor Gray
+    Write-Host '=====================================================' -ForegroundColor DarkGray
+}
+
+function Select-WeaponWithCursor {
+    Param(
+        [string[]]$WeaponOptions
+    )
+
+    $selectedIndex = 0
+
+    while ($true) {
+        Show-WeaponSelectScreen -WeaponOptions $WeaponOptions -SelectedIndex $selectedIndex
+        try {
+            $keyInfo = $host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        }
+        catch {
+            return $null
+        }
+
+        switch ($keyInfo.VirtualKeyCode) {
+            38 { # Up
+                $selectedIndex = ($selectedIndex - 1 + $WeaponOptions.Count) % $WeaponOptions.Count
+            }
+            37 { # Left
+                $selectedIndex = ($selectedIndex - 1 + $WeaponOptions.Count) % $WeaponOptions.Count
+            }
+            40 { # Down
+                $selectedIndex = ($selectedIndex + 1) % $WeaponOptions.Count
+            }
+            39 { # Right
+                $selectedIndex = ($selectedIndex + 1) % $WeaponOptions.Count
+            }
+            13 { # Enter
+                return $selectedIndex
+            }
+            81 { # Q
+                return -1
+            }
+        }
+    }
+}
+
 function Set-HeroWeapon {
     Param(
         [Hero]$Hero
     )
 
-    $weaponOptions = @(
-        'Broken_Shortsword',
-        'Short_Sword',
-        'Hatchet',
-        'Long_Sword',
-        'Zweihander'
-    )
+    $weaponOptions = @(Get-HeroWeaponOptions -Hero $Hero)
 
-    Clear-GameScreen
-    Write-Host 'Choose your weapon:' -ForegroundColor White
-    for ($i = 0; $i -lt $weaponOptions.Count; $i++) {
-        $index = $i + 1
-        Write-Host "$index. $($weaponOptions[$i])"
-    }
+    $selectedIndex = Select-WeaponWithCursor -WeaponOptions $weaponOptions
+    if ($null -eq $selectedIndex) {
+        Clear-GameScreen
+        Write-Host 'Choose your weapon:' -ForegroundColor White
+        for ($i = 0; $i -lt $weaponOptions.Count; $i++) {
+            $index = $i + 1
+            $weaponData = Get-Weapon -WeaponName $weaponOptions[$i]
+            $weaponName = Format-WeaponLabel -WeaponName $weaponData.Name
+            Write-Host "$index. $weaponName ($($weaponData.MinDamage)-$($weaponData.MaxDamage))"
+        }
 
-    if (Get-Command Read-SingleKeyChoice -ErrorAction SilentlyContinue) {
-        $selected = Read-SingleKeyChoice -ValidChoices @('1', '2', '3', '4', '5') -Prompt 'Choose weapon key:'
-    }
-    else {
-        $selected = Read-Host 'Selection'
-    }
+        $validChoices = @()
+        for ($i = 1; $i -le $weaponOptions.Count; $i++) {
+            $validChoices += $i.ToString()
+        }
+        $validChoices += 'Q'
 
-    if ($selected -as [int]) {
-        $selectedIndex = [int]$selected - 1
-        if ($selectedIndex -ge 0 -and $selectedIndex -lt $weaponOptions.Count) {
-            $weapon = Get-Weapon -WeaponName $weaponOptions[$selectedIndex]
-            Equip-Weapon -Hero $Hero -Weapon $weapon
-            Write-Host "$($Hero.Name) equipped $($Hero.Weapon)." -ForegroundColor Green
-            return
+        if (Get-Command Read-SingleKeyChoice -ErrorAction SilentlyContinue) {
+            $selected = Read-SingleKeyChoice -ValidChoices $validChoices -Prompt 'Choose weapon key' -OptionLabels (($weaponOptions | ForEach-Object { Format-WeaponLabel -WeaponName $_ }) + @('Cancel'))
+        }
+        else {
+            $selected = Read-Host 'Selection (number or Q to cancel)'
+        }
+
+        if ([string]::Equals([string]$selected, 'Q', [System.StringComparison]::OrdinalIgnoreCase)) {
+            return 'Weapon selection cancelled.'
+        }
+
+        if ($selected -as [int]) {
+            $selectedIndex = [int]$selected - 1
         }
     }
 
-    Write-Host 'Invalid weapon selection.' -ForegroundColor DarkYellow
+    if ($selectedIndex -eq -1) {
+        return 'Weapon selection cancelled.'
+    }
+
+    if ($selectedIndex -ge 0 -and $selectedIndex -lt $weaponOptions.Count) {
+        $weapon = Get-Weapon -WeaponName $weaponOptions[$selectedIndex]
+        Equip-Weapon -Hero $Hero -Weapon $weapon
+        return "$($Hero.Name) equipped $($Hero.Weapon)."
+    }
+
+    'Invalid weapon selection.'
 }

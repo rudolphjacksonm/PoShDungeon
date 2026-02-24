@@ -23,4 +23,22 @@ Describe 'Weapon and Inventory Helpers' {
         $hero.WeaponStats.MinDamage | Should -Be 5
         $hero.WeaponStats.MaxDamage | Should -Be 7
     }
+
+    It 'Allows cancelling weapon select with Q in fallback mode' {
+        $hero = [Hero]::new('Jane')
+        $startingWeapon = $hero.Weapon
+
+        function Clear-GameScreen {}
+        function Select-WeaponWithCursor { return $null }
+        function Read-SingleKeyChoice { return 'Q' }
+
+        $result = Set-HeroWeapon -Hero $hero
+
+        Remove-Item Function:\Clear-GameScreen
+        Remove-Item Function:\Select-WeaponWithCursor
+        Remove-Item Function:\Read-SingleKeyChoice
+
+        $result | Should -Be 'Weapon selection cancelled.'
+        $hero.Weapon | Should -Be $startingWeapon
+    }
 }

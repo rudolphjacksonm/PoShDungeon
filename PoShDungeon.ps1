@@ -30,25 +30,24 @@ $global:Hero.Potions = 1
 $starterWeapon = Get-Weapon -WeaponName 'Broken_Shortsword'
 Equip-Weapon -Hero $global:Hero -Weapon $starterWeapon
 
-Write-Host "Welcome, $name. You descend into the dungeon with a $($global:Hero.Weapon)."
-Pause-ForContinue
+Clear-UiMessages
+Add-UiMessage -Message "Welcome, $name. You descend into the dungeon with a $($global:Hero.Weapon)."
 
 $floor = 1
 $continueGame = $true
 
 while ($continueGame -and $global:Hero.Status -ne [State]::Dead) {
-    Clear-GameScreen
     $xpToNext = Get-ExperienceForNextLevel -Level $global:Hero.Level
+    $renderMainFrame = {
+        Show-MainGameWindow -Title "Floor $floor" -StatusLines @(
+            "HP: $($global:Hero.Health)/$($global:Hero.MaxHealth)  Lvl: $($global:Hero.Level)  XP: $($global:Hero.Experience)/$xpToNext",
+            "Crit: $($global:Hero.CritChance)%  Dodge: $($global:Hero.DodgeChance)%  Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)"
+        )
+    }
 
-    Write-Host '==================== DUNGEON ====================' -ForegroundColor DarkGray
-    Write-Host "Floor $floor" -ForegroundColor Gray
-    Write-Host "HP: $($global:Hero.Health)/$($global:Hero.MaxHealth)  Lvl: $($global:Hero.Level)  XP: $($global:Hero.Experience)/$xpToNext" -ForegroundColor Cyan
-    Write-Host "Crit: $($global:Hero.CritChance)%  Dodge: $($global:Hero.DodgeChance)%  Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)" -ForegroundColor Gray
-    Write-Host '=================================================' -ForegroundColor DarkGray
-    Write-Host ''
-    Write-Host '[D] Descend deeper   [S] Search floor   [I] Inventory   [Q] Quit' -ForegroundColor White
+    & $renderMainFrame
 
-    $command = Read-SingleKeyChoice -ValidChoices @('D', 'S', 'I', 'Q') -Prompt 'Choose action key:'
+    $command = Read-SingleKeyChoice -ValidChoices @('D', 'S', 'I', 'Q') -Prompt 'Choose your action' -OptionLabels @('Descend deeper', 'Search floor', 'Inventory', 'Quit run') -RenderFrame $renderMainFrame
 
     switch ($command) {
         'I' {
@@ -57,44 +56,45 @@ while ($continueGame -and $global:Hero.Status -ne [State]::Dead) {
 
         'S' {
             Search-Floor -Hero $global:Hero -Floor $floor
-            Pause-ForContinue
         }
 
         'D' {
             $floor += 1
-            Clear-GameScreen
-            Write-Host "You descend to floor $floor." -ForegroundColor Gray
+            Add-UiMessage -Message "You descend to floor $floor."
 
+            Grant-FloorEntryAid -Hero $global:Hero -Floor $floor
             $enemy = New-Enemy -Floor $floor
             if ($enemy.IsBoss) {
-                Write-Host "BOSS ENCOUNTER! $($enemy.Name) emerges with overwhelming force." -ForegroundColor Magenta
+                Add-UiMessage -Message "BOSS ENCOUNTER! $($enemy.Name) emerges with overwhelming force."
             }
             else {
-                Write-Host "$($enemy.Name) appears from the dark." -ForegroundColor DarkYellow
+                Add-UiMessage -Message "$($enemy.Name) appears from the dark."
             }
-            Pause-ForContinue
 
             Battle -Attacker $global:Hero -Defender $enemy
 
             if ($global:Hero.Status -eq [State]::Dead) {
-                Write-Host 'GAME OVER' -ForegroundColor Red
+                Add-UiMessage -Message 'GAME OVER'
                 $continueGame = $false
                 continue
             }
 
             if ($enemy.Status -eq [State]::Dead) {
                 Grant-VictoryRewards -Hero $global:Hero -Floor $floor -Enemy $enemy
-                Pause-ForContinue
             }
         }
 
         'Q' {
-            Write-Host 'You retreat from the dungeon... for now.' -ForegroundColor Gray
+            Add-UiMessage -Message 'You retreat from the dungeon... for now.'
             $continueGame = $false
         }
     }
 }
 
 if ($global:Hero.Status -ne [State]::Dead) {
-    Write-Host "Run complete. Floors reached: $floor | Gold: $($global:Hero.Gold)"
+    Add-UiMessage -Message "Run complete. Floors reached: $floor | Gold: $($global:Hero.Gold)"
+    Show-MainGameWindow -Title "Floor $floor" -StatusLines @(
+        "HP: $($global:Hero.Health)/$($global:Hero.MaxHealth)  Lvl: $($global:Hero.Level)",
+        "Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)"
+    )
 }

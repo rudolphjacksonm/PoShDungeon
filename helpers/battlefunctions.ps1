@@ -24,22 +24,22 @@ function Get-BattleWindow {
         [string]$LastEvent
     )
 
-    Clear-GameScreen
-
     $attackerBar = Get-HealthBar -Current $Attacker.Health -Maximum $Attacker.MaxHealth
     $defenderBar = Get-HealthBar -Current $Defender.Health -Maximum $Defender.MaxHealth
-
-    Write-Host '====================== BATTLE ======================' -ForegroundColor DarkGray
-    Write-Host "Turn: $Turn" -ForegroundColor Gray
-
-    if ($LastEvent) {
-        Write-Host "Last: $LastEvent" -ForegroundColor Yellow
+    $statusLines = @(
+        "Turn: $Turn",
+        ("{0,-18} HP {1,4}/{2,-4} [{3}]" -f $Attacker.Name, $Attacker.Health, $Attacker.MaxHealth, $attackerBar),
+        ("{0,-18} HP {1,4}/{2,-4} [{3}]" -f $Defender.Name, $Defender.Health, $Defender.MaxHealth, $defenderBar)
+    )
+    $infoLines = @()
+    if (-not [string]::IsNullOrWhiteSpace($LastEvent)) {
+        $infoLines += "Last: $LastEvent"
+    }
+    else {
+        $infoLines += 'Last: ...'
     }
 
-    Write-Host ''
-    Write-Host ("{0,-18} HP {1,4}/{2,-4} [{3}]" -f $Attacker.Name, $Attacker.Health, $Attacker.MaxHealth, $attackerBar) -ForegroundColor Cyan
-    Write-Host ("{0,-18} HP {1,4}/{2,-4} [{3}]" -f $Defender.Name, $Defender.Health, $Defender.MaxHealth, $defenderBar) -ForegroundColor Red
-    Write-Host '====================================================' -ForegroundColor DarkGray
+    Show-HudWindow -ModeTitle 'BATTLE' -StatusLines $statusLines -InfoLines $infoLines -InfoHeight 8
 }
 
 function Battle {
@@ -68,17 +68,32 @@ function Battle {
             $lastEvent = Invoke-EnemyTurn -Enemy $Attacker -Target $Defender
             if ($Defender.Health -le 0) { break }
 
-            Get-BattleWindow -Attacker $Attacker -Defender $Defender -Turn $turn -LastEvent $lastEvent
-            $heroAction = Invoke-HeroTurn -Hero $Defender -Enemy $Attacker
+            $renderBattleFrame = {
+                Get-BattleWindow -Attacker $Attacker -Defender $Defender -Turn $turn -LastEvent $lastEvent
+            }
+            $heroAction = Invoke-HeroTurn -Hero $Defender -Enemy $Attacker -RenderFrame $renderBattleFrame
             $lastEvent = $heroAction.Message
 
-            if (-not $heroAction.Continue) { break battle }
+            if (-not $heroAction.Continue) {
+                if (Get-Command Add-UiMessage -ErrorAction SilentlyContinue) {
+                    Add-UiMessage -Message $lastEvent
+                }
+                break battle
+            }
         }
         else {
-            $heroAction = Invoke-HeroTurn -Hero $Attacker -Enemy $Defender
+            $renderBattleFrame = {
+                Get-BattleWindow -Attacker $Attacker -Defender $Defender -Turn $turn -LastEvent $lastEvent
+            }
+            $heroAction = Invoke-HeroTurn -Hero $Attacker -Enemy $Defender -RenderFrame $renderBattleFrame
             $lastEvent = $heroAction.Message
 
-            if (-not $heroAction.Continue) { break battle }
+            if (-not $heroAction.Continue) {
+                if (Get-Command Add-UiMessage -ErrorAction SilentlyContinue) {
+                    Add-UiMessage -Message $lastEvent
+                }
+                break battle
+            }
             if ($Defender.Health -le 0) { break }
 
             Get-BattleWindow -Attacker $Attacker -Defender $Defender -Turn $turn -LastEvent $lastEvent
@@ -90,20 +105,17 @@ function Battle {
 
     Get-BattleWindow -Attacker $Attacker -Defender $Defender -Turn $turn -LastEvent $lastEvent
     Write-Host '[BATTLE END]' -ForegroundColor DarkGray
-    Pause-ForContinue
 }
 
 function Invoke-HeroTurn {
     Param(
         [Hero]$Hero,
-        $Enemy
+        $Enemy,
+        [scriptblock]$RenderFrame
     )
 
-    Write-Host ''
-    Write-Host 'Actions: [1] Attack  [2] Heal  [3] Run' -ForegroundColor White
-
     if (Get-Command Read-SingleKeyChoice -ErrorAction SilentlyContinue) {
-        $action = Read-SingleKeyChoice -ValidChoices @('1', '2', '3') -Prompt 'Choose action key:'
+        $action = Read-SingleKeyChoice -ValidChoices @('1', '2', '3') -Prompt 'Choose battle action' -OptionLabels @('Attack', "Drink potion ($($Hero.Potions) left)", 'Run') -RenderFrame $RenderFrame
     }
     else {
         $action = Read-Host 'Choose action key (1/2/3)'
@@ -125,10 +137,16 @@ function Invoke-HeroTurn {
         }
 
         '2' {
+            if ($Hero.Potions -le 0) {
+                return [PSCustomObject]@{ Continue = $true; Message = 'No potions left.' }
+            }
+
             $healPoints = Get-Heal -Character $Hero
-            $healPoints = [Math]::Max(1, [Math]::Floor($healPoints * $Hero.HealPowerModifier))
+            $scaledHeal = [Math]::Round(($healPoints * [double]$Hero.HealPowerModifier), 0, [System.MidpointRounding]::AwayFromZero)
+            $healPoints = [int][Math]::Max(1, $scaledHeal)
             $Hero.Heal($healPoints)
-            return [PSCustomObject]@{ Continue = $true; Message = "$($Hero.Name) healed for $healPoints." }
+            $Hero.Potions -= 1
+            return [PSCustomObject]@{ Continue = $true; Message = "$($Hero.Name) drank a potion and healed for $healPoints." }
         }
 
         '3' {
@@ -157,12 +175,6 @@ function Invoke-EnemyTurn {
             }
             $Target.Hit($damage)
             return "$($Enemy.Name) attacked for $damage."
-        }
-
-        'Heal' {
-            $healPoints = Get-Heal -Character $Enemy
-            $Enemy.Heal($healPoints)
-            return "$($Enemy.Name) healed for $healPoints."
         }
 
         'PiercingStrike' {
@@ -207,18 +219,15 @@ function Get-EnemyAction {
         'Skeleton' {
             if ($roll -le 60) { return 'Attack' }
             if ($roll -le 80) { return 'PiercingStrike' }
-            return 'Heal'
         }
 
         'Orc' {
             if ($roll -le 50) { return 'Attack' }
             if ($roll -le 85) { return 'CrushingBlow' }
-            return 'Heal'
         }
 
         default {
             if ($roll -le 70) { return 'Attack' }
-            return 'Heal'
         }
     }
 }
@@ -264,8 +273,9 @@ Function Get-HeroDamage {
     )
 
     if ($null -ne $Hero.WeaponStats) {
-        return Get-Random -Minimum $Hero.WeaponStats.MinDamage -Maximum ($Hero.WeaponStats.MaxDamage + 1)
+        $baseDamage = Get-Random -Minimum $Hero.WeaponStats.MinDamage -Maximum ($Hero.WeaponStats.MaxDamage + 1)
+        return ($baseDamage + 1)
     }
 
-    Get-Random -Minimum 1 -Maximum 4
+    (Get-Random -Minimum 1 -Maximum 4) + 1
 }

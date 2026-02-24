@@ -18,40 +18,12 @@ function Get-Weapon {
   |It has some jagged edges that
   | might scratch someone.
 "@
-                    Image =  @"    
-                                         :o/      
-                                        :o/       
-                                       /oy;       
-                                     ;osdd;       
-                                    -hhmy;        
-                                   :dhmh;         
-                                  /dhmdd          
-                                 +hhmdMy          
-                                syymdMm-          
-                              ;yyhmmMm.           
-                             .hsddmMd;            
-                            -hydhmMh;             
-                           -hsmhNMs               
-                          /hsmhNMo                
-         .::             /hymhNN/                 
-        -hsy-;          odddymm-                  
-        ;.;-/oo:;     ;ymmdydh.                   
-              ;:os+-;hNNNmNh.                    
-                  -oysoohNNh;                     
-                    sNdyydd.                      
-                   /MMNhs:ohy/;                   
-                  /MMMd/    ./yy/.                
-                 +MMmh-        ;:sho//-           
-                sMMmy;            ;sds.           
-               hMMds               '             
-             .oNNho                               
-            ;+oh::                                                       
-           -/yo;                                     
-      ; '-:/ho;                                      
-      +sooyhs-                                       
-      +hmddmh-                                       
-      .dmyhhh/                                       
-        -:-;                                         
+                    Image =  @"
+      /\
+     /  \
+    /_/\ \
+      ||_|
+      ||
 "@
                 }
             }
@@ -65,6 +37,13 @@ function Get-Weapon {
                     
   |A short blade with a sturdy iron hilt. The pommel is decorated with
   |a crescent surrounding a small skull.
+"@
+                    Image = @"
+       /\
+      /  \
+      ||||
+      ||||
+      /__\
 "@
                 }
             }
@@ -80,28 +59,11 @@ function Get-Weapon {
   |It's not the most refined weapon but it will do.
 "@
                     Image = @"
-                   
-                              ':oys.              
-                             :ssoosy/'            
-                           '+soooshdds.           
-                           ++++shddmmmdo.         
-                           -:+shdmmmddddy/'       
-                               '-+hddhhy+/oy:'    
-                                 'oyyy/-:sdho'    
-                               ':yy/yh/:+o/.      
-                             '/hmd/-.' '..        
-                           '/ymh+-                
-                         .+hss+.                  
-                       -sdds/.                    
-                     -sdNNm/'                     
-                   .oNMNNh:                       
-                 -smMMMm+'                        
-              ':hNMMMmo.                          
-           ./smMMMMm+.                            
-      ':/odNMMMMNh/'                              
-      'dNNMMMMd+.'                                
-       .mNNNy-'
-        .ho.                                  
+      ___
+   __/___\__
+      | | 
+      | |____
+      |_____/
 "@
                 }
             }
@@ -116,6 +78,15 @@ function Get-Weapon {
   |A long, steel blade in a steel hilt. It's been polished to a 
   |mirrored reflection and reaches quite far.
 "@
+                    Image = @"
+        /\
+       /  \
+      / /\ \
+      ||  ||
+      ||  ||
+      ||__||
+       /__\
+"@
                 }
             }
 
@@ -128,6 +99,15 @@ function Get-Weapon {
 
   |A heavy steel blade that requires two hands to weild.
   |Can easily cleave through bone.
+"@
+                    Image = @"
+         /\
+        /  \
+       / /\ \
+      / /  \ \
+      || || ||
+      ||_||_||
+        /__\
 "@
                 }
             }

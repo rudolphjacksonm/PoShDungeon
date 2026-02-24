@@ -93,6 +93,7 @@ class Human : Creature {
     [int]$Health = 80
     [int]$MaxHealth = 80
     [State]$Status = 'Alive'
+    [double]$HealModifier = 2.0
 
     # Hidden properties for Human class
     hidden [string] $Weakness = 'Dark'
@@ -124,8 +125,9 @@ class Hero : Human {
     [int]$Experience = 0
     [int]$CritChance = 5
     [int]$DodgeChance = 0
-    [double]$HealPowerModifier = 1.0
+    [double]$HealPowerModifier = 1.6
     [int]$BonusDamage = 0
+    [string[]]$UnlockedWeapons = @('Broken_Shortsword')
     
     # Hidden properties
     hidden [hashtable]$WeaponStats
