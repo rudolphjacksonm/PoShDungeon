@@ -92,4 +92,93 @@ Describe 'Gameplay Progression Helpers' {
         $hero.Health | Should -Be $hero.MaxHealth
         $hero.Potions | Should -Be 2
     }
+
+    It 'Seeds run state with bounded floor count and valid shop floor' {
+        $state = Initialize-RunState -MinimumFloors 8 -MaximumFloors 10
+
+        $state.MaxFloors | Should -BeGreaterOrEqual 8
+        $state.MaxFloors | Should -BeLessOrEqual 10
+        $state.ShopFloor | Should -BeGreaterThan 3
+        $state.ShopFloor | Should -BeLessOrEqual $state.MaxFloors
+        $state.Floors.Keys.Count | Should -Be $state.MaxFloors
+        $state.ShopStock.Count | Should -Be 3
+    }
+
+    It 'Depletes seeded floor loot through search and then reports empty floor' {
+        $hero = [Hero]::new('Ari')
+        $state = @{
+            Floors = @{
+                1 = @{
+                    SearchLoot = @(
+                        @{ Type = 'Gold'; Amount = 4 },
+                        @{ Type = 'Potion'; Amount = 1 }
+                    )
+                }
+            }
+        }
+
+        $script:messages = @()
+        function Add-UiMessage { Param([string]$Message) $script:messages += $Message }
+
+        Search-Floor -Hero $hero -Floor 1 -RunState $state
+        Search-Floor -Hero $hero -Floor 1 -RunState $state
+        Search-Floor -Hero $hero -Floor 1 -RunState $state
+
+        Remove-Item Function:\Add-UiMessage
+
+        $hero.Gold | Should -Be 4
+        $hero.Potions | Should -Be 1
+        @( $state.Floors[1].SearchLoot ).Count | Should -Be 0
+        ($script:messages -join ' ') | Should -Match 'picked clean'
+    }
+
+    It 'Only triggers the shop once on the seeded shop floor' {
+        $state = @{
+            ShopFloor = 6
+            ShopVisited = $false
+        }
+
+        (Should-TriggerShopEncounter -RunState $state -Floor 5) | Should -BeFalse
+        (Should-TriggerShopEncounter -RunState $state -Floor 6) | Should -BeTrue
+
+        $state.ShopVisited = $true
+        (Should-TriggerShopEncounter -RunState $state -Floor 6) | Should -BeFalse
+    }
+
+    It 'Blocks unaffordable shop purchases and keeps stock unsold' {
+        $hero = [Hero]::new('Ari')
+        $hero.Gold = 10
+        $state = @{
+            ShopVisited = $false
+            ShopStock = @(
+                @{
+                    Id = 1
+                    Name = 'Atomic Bomb'
+                    Type = 'Weapon'
+                    WeaponName = 'Atomic_Bomb'
+                    Price = 999
+                    Sold = $false
+                }
+            )
+        }
+
+        $script:messages = @()
+        $script:shopCalls = 0
+        function Add-UiMessage { Param([string]$Message) $script:messages += $Message }
+        function Read-SingleKeyChoice {
+            $script:shopCalls += 1
+            if ($script:shopCalls -eq 1) { return '1' }
+            return 'Q'
+        }
+
+        Invoke-ShopEncounter -Hero $hero -RunState $state -Floor 6
+
+        Remove-Item Function:\Add-UiMessage
+        Remove-Item Function:\Read-SingleKeyChoice
+
+        $hero.Gold | Should -Be 10
+        $state.ShopStock[0].Sold | Should -BeFalse
+        ($script:messages -join ' ') | Should -Match 'cannot afford'
+        $state.ShopVisited | Should -BeTrue
+    }
 }

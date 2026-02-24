@@ -15,6 +15,7 @@ function Get-InventoryWindow {
             $statusLines = @(
                 "Hero: $($Hero.Name)  Armor: $($Hero.Armor)",
                 "Weapon: $($Hero.Weapon)  Damage: $($Hero.WeaponStats.MinDamage)-$($Hero.WeaponStats.MaxDamage)",
+                "HP: $($Hero.Health)/$($Hero.MaxHealth)",
                 "Level: $($Hero.Level)  XP: $($Hero.Experience)/$(Get-ExperienceForNextLevel -Level $Hero.Level)",
                 "Crit: $($Hero.CritChance)%  Dodge: $($Hero.DodgeChance)%  Heal: x$($Hero.HealPowerModifier)",
                 "Gold: $($Hero.Gold)  Potions: $($Hero.Potions)"

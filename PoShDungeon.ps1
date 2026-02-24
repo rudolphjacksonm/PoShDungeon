@@ -32,16 +32,21 @@ Equip-Weapon -Hero $global:Hero -Weapon $starterWeapon
 
 Clear-UiMessages
 Add-UiMessage -Message "Welcome, $name. You descend into the dungeon with a $($global:Hero.Weapon)."
+$global:RunState = Initialize-RunState
+Add-UiMessage -Message "You sense $($global:RunState.MaxFloors) floors in this run."
 
 $floor = 1
 $continueGame = $true
 
 while ($continueGame -and $global:Hero.Status -ne [State]::Dead) {
     $xpToNext = Get-ExperienceForNextLevel -Level $global:Hero.Level
+    $maxFloors = $global:RunState.MaxFloors
+    $remainingLoot = Get-RemainingFloorLootCount -RunState $global:RunState -Floor $floor
     $renderMainFrame = {
-        Show-MainGameWindow -Title "Floor $floor" -StatusLines @(
+        Show-MainGameWindow -Title "Floor $floor/$maxFloors" -StatusLines @(
             "HP: $($global:Hero.Health)/$($global:Hero.MaxHealth)  Lvl: $($global:Hero.Level)  XP: $($global:Hero.Experience)/$xpToNext",
-            "Crit: $($global:Hero.CritChance)%  Dodge: $($global:Hero.DodgeChance)%  Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)"
+            "Crit: $($global:Hero.CritChance)%  Dodge: $($global:Hero.DodgeChance)%  Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)",
+            "Discoveries left on this floor: $remainingLoot"
         )
     }
 
@@ -55,12 +60,23 @@ while ($continueGame -and $global:Hero.Status -ne [State]::Dead) {
         }
 
         'S' {
-            Search-Floor -Hero $global:Hero -Floor $floor
+            Search-Floor -Hero $global:Hero -Floor $floor -RunState $global:RunState
         }
 
         'D' {
+            if ($floor -ge $global:RunState.MaxFloors) {
+                Add-UiMessage -Message "You reach the end of the seeded dungeon at floor $floor."
+                Add-UiMessage -Message 'No deeper stairs remain.'
+                $continueGame = $false
+                continue
+            }
+
             $floor += 1
             Add-UiMessage -Message "You descend to floor $floor."
+
+            if (Should-TriggerShopEncounter -RunState $global:RunState -Floor $floor) {
+                Invoke-ShopEncounter -Hero $global:Hero -RunState $global:RunState -Floor $floor
+            }
 
             Grant-FloorEntryAid -Hero $global:Hero -Floor $floor
             $enemy = New-Enemy -Floor $floor
@@ -93,7 +109,7 @@ while ($continueGame -and $global:Hero.Status -ne [State]::Dead) {
 
 if ($global:Hero.Status -ne [State]::Dead) {
     Add-UiMessage -Message "Run complete. Floors reached: $floor | Gold: $($global:Hero.Gold)"
-    Show-MainGameWindow -Title "Floor $floor" -StatusLines @(
+    Show-MainGameWindow -Title "Floor $floor/$($global:RunState.MaxFloors)" -StatusLines @(
         "HP: $($global:Hero.Health)/$($global:Hero.MaxHealth)  Lvl: $($global:Hero.Level)",
         "Gold: $($global:Hero.Gold)  Potions: $($global:Hero.Potions)"
     )

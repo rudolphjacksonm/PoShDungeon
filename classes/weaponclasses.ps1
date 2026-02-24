@@ -112,6 +112,73 @@ function Get-Weapon {
                 }
             }
 
+            Laser_Rifle {
+                $weaponObj = @{
+                    Name = 'Laser_Rifle'
+                    minDamage = 20
+                    maxDamage = 34
+                    Description = @"
+
+  |A pre-collapse beam rifle with a cracked battery.
+  |It still vaporizes most things in one bright flash.
+"@
+                    Image = @"
+    ____________________
+   / ________________ /|
+  / /______________/ / |
+ | |  LASER RIFLE  | | |
+ | |______________ | |/
+  \________________\/
+"@
+                }
+            }
+
+            Moonblade {
+                $weaponObj = @{
+                    Name = 'Moonblade'
+                    minDamage = 16
+                    maxDamage = 28
+                    Description = @"
+
+  |A curved silver blade that hums in the dark.
+  |Legends say it was forged from moonlight.
+"@
+                    Image = @"
+        _..._
+     .-'_..._''.
+   .' .'      '.\
+  / .'          |
+  | |      _    |
+  \ '.   .' '. /
+   '. `'      /
+     `-.___.-'
+"@
+                }
+            }
+
+            Atomic_Bomb {
+                $weaponObj = @{
+                    Name = 'Atomic_Bomb'
+                    minDamage = 75
+                    maxDamage = 120
+                    Description = @"
+
+  |A tiny warhead in a padded crate.
+  |The warning label just says 'NO'.
+"@
+                    Image = @"
+        _.-._
+      .' | | '.
+     /   | |   \
+    |    | |    |
+    |  .-===-.  |
+     \  '---'  /
+      '._|_|_.'
+         /_\
+"@
+                }
+            }
+
             Default {
                 Write-Output 'Not a valid weapon.'
             }
